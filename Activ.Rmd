@@ -1,0 +1,115 @@
+## Daily Activity Pattern 
+
+================================================================================================================================================
+
+First we need to read the data into R using the read.csv function.  I assign this data to the variable "activity.na". 
+
+```{r, echo = TRUE}
+activity.na <- read.csv("/Users/toddshannon/Downloads/activity.csv")
+```
+
+
+
+
+In order to find the average steps taken per day and plot the results to a histogram.  We call the aggregate function for a simple way to get the results.  We can then take the mean and median of the steps taken, which are 10.766.19 and 10765, respectively.  
+
+
+
+
+```{r}
+steps_by_day <- aggregate(steps ~ date, activity.na, sum)
+steps.mean <- mean(steps_by_day$steps)
+steps.median <- median(steps_by_day$steps)
+hist(steps_by_day$steps, main = "Total Steps by Day", col = "green", xlab = "number of steps")
+```
+
+## Time Series
+
+Next we make a time series plot to visualize the average number of steps taken over the 5-minute intervals reported.  Again we call the aggregate function to isolate the steps and interval variables. The highest average number of steps (153.60) is  at 820th interval 
+
+
+
+```{r}
+steps_by_interval <- aggregate(steps ~ interval, activity.na, mean)
+plot(steps_by_interval$interval, steps_by_interval$steps, xlab = "steps", type = "h", ylab = "intervals", col = "blue")
+```
+
+### Replacing the NA values 
+
+
+Up until now, we've ignored the NA values in the dataset.  We can see how many NA values are present with the following code: 
+
+```{r} 
+sum(is.na(activity.na$steps))
+```
+
+
+We can fill in the missing values in the data set by first indexing the NA values and replacing them with the mean average of the values with the data set.  Before we do this, we want to preserve the orginal data set for comparison sake, so we'll duplicate the data frame and assign the variable activity2, then we'll replace the NA values in that data frame with the following code:   
+
+```{r}
+activity2 <- activity.na
+activity2$steps[which(is.na(activity2$steps))] <- mean(activity2$steps, na.rm = T)
+sum(is.na(activity2))
+```
+
+
+
+
+
+For a quick comparison, we call head on both objects to confirm.  
+
+
+
+
+
+```{r}
+head(activity2)
+head(activity.na)
+```
+### Comparison
+
+
+Now we can compare the two side by side to see the impact of replacing the NA values.  First, we'll need to call aggregate on the new data frame activity2 and take the average steps by day.  
+
+
+```{r}
+steps_by_day2 <- aggregate(steps ~ date, activity2, sum)
+
+par(mfrow = c(1, 2))
+(steps.meanNA <- mean(steps_by_day$steps))
+(steps.mean2 <- mean(steps_by_day2$steps))
+(steps.median <- median(steps_by_day$steps))
+(steps.median2 <- median(steps_by_day2$steps))
+hist(steps_by_day$steps, main = "NA steps by day", col = "green", xlab = "number of steps")
+hist(steps_by_day2$steps, main = "Non_NA steps by day", col = "red", xlab = "number of steps")
+```
+
+
+In this case, the mean stayed the same but the number of steps changed quite a bit (nearly 10k steps per day).  
+
+
+## Weekend warriors?
+
+
+In order to compare weekend vs. weekday activity, we call the weekday() function to convert the dates to days of the week.  This creates a character vector of the days of the week the dates fall on and we assign the values to the variable days.  
+
+For simplicity, we convert the days to factors, but this creates a factor with 7 levels--one for each day of the week--and this is not what we want.  But it is helpful because we can use the integer values of the levels to set up a simple logical ifelse statement that converts the days to just two levels, which is our goal.  
+
+Finally, we append the newly created factor variable to the activity3 data frame for easy plotting.  We code it this way:
+
+```{r}
+days <- weekdays(as.Date(activity2$date))
+new_days <- factor(days)
+day_fact <- factor(ifelse(as.numeric(new_days) < 2, "weekend", "weekday"))
+activity3 <- cbind(activity2, day_fact)
+head(activity3)
+```
+
+
+Now that we have the data with a day factor, we can call aggregate() once again and plot the result to a panel showing the diffence between weekday and weekend activity.  
+
+```{r}
+weekday_steps <- aggregate(steps ~ interval + day_fact, data = activity3, mean)
+library(lattice)
+xyplot(weekday_steps$steps ~ weekday_steps$interval | weekday_steps$day_fact, main = "Ave steps/day by interval", xlab = "Steps", 
+       ylab = "Interval", pch = 20, type = "l")
